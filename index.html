@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>歌单提取（酷狗 / QQ音乐 / 网易云）</title>
+<style>
+  :root { --bg:#f5f6fa; --card:#fff; --pri:#2b6cff; --pri-h:#1d54d8; --text:#1a1a1a; --mut:#666; --bd:#e2e5ee; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif; font-size:15px; line-height:1.6; }
+  .wrap { max-width:720px; margin:0 auto; padding:14px 14px 80px; }
+  header { text-align:center; padding:10px 0 16px; }
+  header h1 { margin:0 0 4px; font-size:20px; }
+  header p { margin:0; color:var(--mut); font-size:12px; }
+  .card { background:var(--card); border:1px solid var(--bd); border-radius:10px; padding:14px; margin:12px 0; box-shadow:0 1px 3px rgba(0,0,0,.04); }
+  textarea { width:100%; border:1px solid var(--bd); border-radius:8px; padding:10px; font:inherit; resize:vertical; min-height:90px; background:#fff; }
+  textarea:focus { outline:2px solid var(--pri); border-color:var(--pri); }
+  button { display:block; width:100%; background:var(--pri); color:#fff; border:none; border-radius:8px; padding:12px; font:inherit; font-size:16px; font-weight:600; margin-top:10px; cursor:pointer; }
+  button:hover:not(:disabled) { background:var(--pri-h); }
+  button:disabled { background:#a8b3d4; cursor:not-allowed; }
+  .lbl { font-size:13px; color:var(--mut); margin:0 0 6px; }
+  .log { white-space:pre-wrap; font-size:13px; color:var(--mut); background:#fafbfd; }
+  .out { white-space:pre-wrap; font-size:14px; line-height:1.7; }
+  .tools { display:flex; gap:8px; margin-top:8px; }
+  .tools button { flex:1; background:#fff; color:var(--pri); border:1px solid var(--pri); font-size:14px; padding:8px; margin:0; font-weight:500; }
+  .tools button:hover:not(:disabled) { background:#eef3ff; }
+  .tools button:disabled { border-color:#bbb; color:#999; background:#fff; }
+  .tag-group { margin-top:8px; }
+  .tag-title { display:block; font-size:12px; color:var(--mut); margin:0 0 4px; }
+  .tag-wrap { display:flex; flex-wrap:wrap; margin:-3px; }
+  .tag-wrap label { margin:3px; cursor:pointer; }
+  .tag-wrap label span { display:inline-block; padding:5px 12px; border:1px solid var(--bd); border-radius:16px; background:#fff; font-size:13px; }
+  .tag-wrap label input { display:none; }
+  .tag-wrap label input:checked + span { background:var(--pri); color:#fff; border-color:var(--pri); }
+  input[type=number], input[type=text], select { width:100%; border:1px solid var(--bd); border-radius:8px; padding:10px; font:inherit; background:#fff; }
+  input[type=number]:focus, input[type=text]:focus, select:focus { outline:2px solid var(--pri); border-color:var(--pri); }
+  .rec-item { border:1px solid var(--bd); border-radius:10px; padding:12px; margin:10px 0; background:#fafbfd; }
+  .rec-song { font-weight:600; font-size:15px; }
+  .rec-blessing { white-space:pre-wrap; margin:8px 0; color:var(--text); line-height:1.7; }
+  .rec-blessing.loading { color:var(--mut); }
+  .rebtn { display:inline-block; background:#fff; color:var(--pri); border:1px solid var(--pri); border-radius:8px; padding:6px 14px; font-size:13px; cursor:pointer; font-weight:500; }
+  .rebtn:hover:not(:disabled) { background:#eef3ff; }
+  .rebtn:disabled { border-color:#bbb; color:#999; background:#fff; cursor:not-allowed; }
+  .song-check { display:block; font-size:14px; padding:6px 4px; border-bottom:1px solid #f0f2f7; cursor:pointer; }
+  .song-check input { margin-right:8px; vertical-align:middle; }
+  .sort-plan { border:1px solid var(--bd); border-radius:10px; padding:12px; margin:10px 0; background:#fff; }
+  .sort-plan-head { display:block; margin-bottom:6px; }
+  .sort-plan-name { font-weight:700; font-size:15px; color:var(--pri); }
+  .sort-plan-desc { display:block; font-size:12px; color:var(--mut); margin-top:2px; }
+  .sort-plan-songs { font-size:13px; line-height:1.7; color:var(--text); background:#fafbfd; border-radius:8px; padding:8px 10px; }
+  .sort-song { padding:2px 0; }
+  .sort-plan-count { display:flex; align-items:center; margin-top:10px; }
+  .sort-plan-count select { width:auto; padding:6px 10px; }
+  .pick-count { display:none; position:fixed; right:16px; bottom:calc(40vh + 44px); z-index:999; padding:6px 16px; border-radius:16px; background:var(--pri); color:#fff; font-size:13px; font-weight:600; box-shadow:0 4px 14px rgba(43,108,255,.35); }
+  .pick-preview { display:none; position:fixed; right:16px; bottom:16px; z-index:999; width:80%; max-width:340px; max-height:40vh; overflow:auto; padding:10px 14px; border-radius:12px; background:#fff; border:1px solid var(--bd); box-shadow:0 6px 20px rgba(0,0,0,.14); }
+  .pick-preview .pp-title { font-size:12px; color:var(--mut); margin-bottom:6px; }
+  .pick-preview .pp-item { display:flex; align-items:center; font-size:13px; color:var(--text); padding:4px 0; border-bottom:1px solid #f0f2f7; }
+  .pick-preview .pp-item:last-child { border-bottom:none; }
+  .pick-preview .pp-info { flex:1; min-width:0; padding-right:6px; }
+  .pick-preview .pp-del { flex:none; width:28px; background:#fff; color:#e5484d; border:1px solid var(--bd); border-radius:6px; padding:2px 0; font-size:12px; cursor:pointer; line-height:1.4; text-align:center; }
+  .pick-preview .pp-del:hover { background:#fdecec; }
+  .link-row { display:flex; align-items:center; margin-top:8px; }
+  .link-row .link-inp { flex:1; min-width:0; border:1px solid var(--bd); border-radius:8px; padding:10px; font:inherit; background:#fff; }
+  .link-row .link-cnt { width:72px; flex:none; margin-left:6px; border:1px solid var(--bd); border-radius:8px; padding:10px 6px; font:inherit; background:#fff; text-align:center; }
+  .link-row .row-del { flex:none; width:36px; margin-left:6px; background:#fff; color:#e5484d; border:1px solid var(--bd); border-radius:8px; padding:10px 0; font:inherit; font-size:14px; cursor:pointer; line-height:1; text-align:center; }
+  .link-row .row-del:hover { background:#fdecec; }
+  .song-row { display:flex; align-items:center; margin-top:8px; }
+  .song-row .song-name { flex:1; min-width:0; border:1px solid var(--bd); border-radius:8px; padding:10px; font:inherit; background:#fff; }
+  .song-row .song-singer { width:110px; flex:none; margin-left:6px; border:1px solid var(--bd); border-radius:8px; padding:10px 6px; font:inherit; background:#fff; }
+  .song-row .row-del { flex:none; width:36px; margin-left:6px; background:#fff; color:#e5484d; border:1px solid var(--bd); border-radius:8px; padding:10px 0; font:inherit; font-size:14px; cursor:pointer; line-height:1; text-align:center; }
+  .song-row .row-del:hover { background:#fdecec; }
+  .addbtn { display:inline-block; width:auto; margin-top:8px; background:#fff; color:var(--pri); border:1px dashed var(--pri); border-radius:8px; padding:8px 16px; font:inherit; font-size:14px; font-weight:500; cursor:pointer; }
+  .addbtn:hover { background:#eef3ff; }
+  footer { text-align:center; color:var(--mut); font-size:11px; margin-top:18px; }
+  @media(max-width:480px){ header h1{font-size:18px;} .wrap{padding:10px;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🎵 歌单提取</h1>
+    <p>粘贴分享链接 → 一键查出全部歌曲及歌手 → 可复制</p>
+  </header>
+  <div class="card">
+    <p class="lbl">分享链接 / 文案（酷狗 / QQ音乐 / 网易云）</p>
+    <div id="linkRows"></div>
+    <button class="addbtn" onclick="addRow()">＋ 增加一行</button>
+    <p class="lbl" style="margin-top:14px">🎤 手动添加歌名（歌手选填）</p>
+    <div id="songRows"></div>
+    <button class="addbtn" onclick="addSongRow()">＋ 增加歌名</button>
+    <p class="lbl" style="margin-top:10px">🔢 提取数量</p>
+    <select id="limit">
+      <option value="10" selected>10 首</option>
+      <option value="20">20 首</option>
+      <option value="30">30 首</option>
+      <option value="50">50 首</option>
+      <option value="100">100 首</option>
+      <option value="200">200 首</option>
+      <option value="0">全部</option>
+    </select>
+    <p class="lbl" style="margin-top:10px">🎁 是否生成祝词</p>
+    <select id="bless">
+      <option value="1" selected>要祝词（AI 生成）</option>
+      <option value="0">不要祝词（仅返回歌）</option>
+    </select>
+    <p class="lbl" style="margin-top:10px">🎁 随机推荐几首（选填，AI 生成祝词）</p>
+    <input id="cnt" type="number" min="1" placeholder="例如 1" inputmode="numeric">
+    <div class="tag-group" id="tagGroup">
+      <span class="tag-title">🏷️ 祝词标签（可多选）</span>
+      <span class="tag-title" style="margin-top:4px">节日</span>
+      <div class="tag-wrap" id="holidayTags"></div>
+      <span class="tag-title" style="margin-top:6px">人际关系</span>
+      <div class="tag-wrap" id="relTags"></div>
+    </div>
+    <p class="lbl" style="margin-top:10px" id="lenLbl">✏️ 祝词字数（选填，默认 50）</p>
+    <input id="len" type="number" min="1" placeholder="50" inputmode="numeric">
+    <p class="lbl" style="margin-top:10px" id="customLbl">📝 文本指定条件（选填）</p>
+    <input id="custom" type="text" placeholder="例如：要喜庆一点、提到龙年、口语化一些……">
+    <button id="btn" onclick="run()">🔍 提取歌曲</button>
+  </div>
+  <div class="card" style="display:none" id="logCard">
+    <p class="lbl">运行状态</p>
+    <textarea id="log" class="log" readonly rows="5"></textarea>
+  </div>
+  <div class="card" style="display:none" id="outCard">
+    <p class="lbl">📋 结果</p>
+    <textarea id="out" class="out" readonly rows="20"></textarea>
+    <div id="recList" style="display:none"></div>
+    <div id="pickArea" style="display:none">
+      <p class="lbl" style="margin-top:12px">🎯 勾选歌曲，为其生成祝词</p>
+      <div id="pickCount" class="pick-count">已选 0 首</div>
+      <div id="pickPreview" class="pick-preview"></div>
+      <div id="songCheckList"></div>
+      <button class="rebtn" style="margin-top:10px" onclick="genSelected()">✨ 为选中歌曲生成祝词</button>
+      <button class="rebtn" style="margin-top:10px" onclick="sortSelected()">🎧 智能排序播放顺序</button>
+      <div class="sort-plan-count">
+        <span class="lbl" style="margin:0 8px 0 0">方案数量</span>
+        <select id="planCount">
+          <option value="5" selected>5 种</option>
+          <option value="6">6 种</option>
+          <option value="7">7 种</option>
+          <option value="8">8 种</option>
+          <option value="10">10 种</option>
+        </select>
+      </div>
+      <div id="sortPlanList" style="display:none"></div>
+    </div>
+    <div class="tools">
+      <button onclick="copyPlain()">📋 复制（不带祝词）</button>
+      <button onclick="copyWithBlessing()">🎁 复制（带祝词）</button>
+      <button onclick="dlOut()">⬇️ 下载 txt</button>
+    </div>
+  </div>
+  <footer>仅用于学习交流</footer>
+</div>
+<script>
+  const HOLIDAY_TAGS = ["春节","元宵节","清明节","端午节","七夕节","中秋节","重阳节","冬至","元旦","情人节","母亲节","父亲节","教师节","国庆节","圣诞节","生日"];
+  const REL_TAGS = ["亲情","友情","爱情","兄弟姐妹","闺蜜","女朋友","男朋友","同事","同学","师生","长辈","晚辈","邻里","播间所有人","陌生人"];
+  function renderTags(containerId, list) {
+    const box = document.getElementById(containerId);
+    box.innerHTML = list.map(t =>
+      '<label><input type="checkbox" class="tag" value="' + t + '"><span>' + t + '</span></label>'
+    ).join('');
+  }
+  renderTags('holidayTags', HOLIDAY_TAGS);
+  renderTags('relTags', REL_TAGS);
+
+  function addRow(link, cnt) {
+    const box = document.getElementById('linkRows');
+    const row = document.createElement('div');
+    row.className = 'link-row';
+    row.innerHTML = '<input type="text" class="link-inp" placeholder="粘贴分享链接或文案">' +
+      '<input type="number" class="link-cnt" min="1" placeholder="数量" inputmode="numeric">' +
+      '<button class="row-del" onclick="removeRow(this)">✕</button>';
+    box.appendChild(row);
+    if (link) row.querySelector('.link-inp').value = link;
+    if (cnt) row.querySelector('.link-cnt').value = cnt;
+    refreshRowDels();
+  }
+  function removeRow(btn) {
+    const row = btn.parentNode;
+    const box = document.getElementById('linkRows');
+    if (box.children.length <= 1) return;
+    box.removeChild(row);
+    refreshRowDels();
+  }
+  function refreshRowDels() {
+    const dels = document.querySelectorAll('#linkRows .row-del');
+    const show = dels.length > 1;
+    dels.forEach(b => { b.style.display = show ? '' : 'none'; });
+  }
+  function collectText() {
+    const rows = document.querySelectorAll('#linkRows .link-row');
+    const lines = [];
+    rows.forEach(r => {
+      const link = r.querySelector('.link-inp').value.trim();
+      const cnt = r.querySelector('.link-cnt').value.trim();
+      if (!link) return;
+      lines.push(cnt ? (link + ' ' + cnt) : link);
+    });
+    return lines.join("\n");
+  }
+  addRow();
+
+  function addSongRow(name, singer) {
+    const box = document.getElementById('songRows');
+    const row = document.createElement('div');
+    row.className = 'song-row';
+    row.innerHTML = '<input type="text" class="song-name" placeholder="歌名">' +
+      '<input type="text" class="song-singer" placeholder="歌手（选填）">' +
+      '<button class="row-del" onclick="removeSongRow(this)">✕</button>';
+    box.appendChild(row);
+    if (name) row.querySelector('.song-name').value = name;
+    if (singer) row.querySelector('.song-singer').value = singer;
+    refreshSongRowDels();
+  }
+  function removeSongRow(btn) {
+    const row = btn.parentNode;
+    const box = document.getElementById('songRows');
+    if (box.children.length <= 1) return;
+    box.removeChild(row);
+    refreshSongRowDels();
+  }
+  function refreshSongRowDels() {
+    const dels = document.querySelectorAll('#songRows .row-del');
+    const show = dels.length > 1;
+    dels.forEach(b => { b.style.display = show ? '' : 'none'; });
+  }
+  function collectManualSongs() {
+    const rows = document.querySelectorAll('#songRows .song-row');
+    const list = [];
+    rows.forEach(r => {
+      const name = r.querySelector('.song-name').value.trim();
+      const singer = r.querySelector('.song-singer').value.trim();
+      if (!name) return;
+      list.push({ name, singer });
+    });
+    return list;
+  }
+  addSongRow();
+
+  let P = null;
+  let SEL_IDX = [];
+  let SORT_PLANS = [];
+
+  function getTags() {
+    return Array.from(document.querySelectorAll('.tag:checked')).map(c => c.value);
+  }
+  function getWordLimit() {
+    return parseInt(document.getElementById('len').value, 10) || 50;
+  }
+  function getCustom() {
+    return document.getElementById('custom').value.trim();
+  }
+  function getWantBlessing() {
+    return document.getElementById('bless').value !== '0';
+  }
+  function onBlessChange() {
+    const want = getWantBlessing();
+    document.getElementById('tagGroup').style.display = want ? '' : 'none';
+    document.getElementById('lenLbl').style.display = want ? '' : 'none';
+    document.getElementById('len').style.display = want ? '' : 'none';
+    const customLbl = document.getElementById('customLbl');
+    const customInput = document.getElementById('custom');
+    if (want) {
+      customLbl.textContent = '📝 文本指定条件（选填）';
+      customInput.placeholder = '例如：要喜庆一点、提到龙年、口语化一些……';
+    } else {
+      customLbl.textContent = '🔍 按条件筛选歌单（选填）';
+      customInput.placeholder = '例如：只要慢歌、只要周杰伦的歌、粤语歌……';
+    }
+  }
+  document.getElementById('bless').addEventListener('change', onBlessChange);
+  onBlessChange();
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  }
+  function buildTextFromPicks() {
+    const lines = ["歌单：《" + P.title + "》  已选 " + P.picks.length + " 首（附祝词）", "=".repeat(40)];
+    P.picks.forEach((p, i) => {
+      lines.push(String(i + 1).padStart(3, " ") + ". " + p.name + " —— " + p.singer);
+      lines.push("     🎁 祝词：" + p.blessing);
+    });
+    lines.push("=".repeat(40));
+    return lines.join("\n");
+  }
+  function orderText() {
+    const list = P.order || P.songs || [];
+    const lines = ["歌单：《" + P.title + "》  共 " + list.length + " 首", "=".repeat(40)];
+    list.forEach((s, i) => {
+      lines.push(String(i + 1).padStart(3, " ") + ". " + s.name + " —— " + s.singer);
+    });
+    lines.push("=".repeat(40));
+    lines.push("合计 " + list.length + " 首");
+    return lines.join("\n");
+  }
+  function currentText() {
+    if (P && P.picks && P.picks.length) return buildTextFromPicks();
+    return orderText();
+  }
+  function renderPicks() {
+    const box = document.getElementById('recList');
+    box.innerHTML = P.picks.map((p, i) =>
+      '<div class="rec-item">' +
+        '<div class="rec-song">' + (i + 1) + '. ' + escapeHtml(p.name) + ' —— ' + escapeHtml(p.singer) + '</div>' +
+        '<div class="rec-blessing" id="bless-' + i + '">🎁 祝词：' + escapeHtml(p.blessing) + '</div>' +
+        '<button class="rebtn" id="rebtn-' + i + '" onclick="regen(' + i + ')">🔄 重新生成祝词</button>' +
+      '</div>'
+    ).join('');
+  }
+  async function regen(i) {
+    const p = P.picks[i];
+    const btn = document.getElementById('rebtn-' + i);
+    const blessEl = document.getElementById('bless-' + i);
+    btn.disabled = true;
+    blessEl.classList.add('loading');
+    blessEl.textContent = '🎁 正在生成新祝词…';
+    try {
+      const r = await fetch('https://1308341533-l4z6r0c8fz.ap-guangzhou.tencentscf.com/rebless', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ songName: p.name, singer: p.singer, tags: getTags(), wordLimit: getWordLimit(), custom: getCustom() }) });
+      const d = await r.json();
+      if (d.blessing) {
+        p.blessing = d.blessing;
+        blessEl.textContent = '🎁 祝词：' + d.blessing;
+      } else {
+        p.blessing = '（生成失败）';
+        blessEl.textContent = '🎁 祝词：（生成失败：' + (d.error || '未知错误') + '）';
+      }
+    } catch (e) {
+      p.blessing = '（请求失败）';
+      blessEl.textContent = '🎁 祝词：（请求失败：' + e.message + '）';
+    }
+    blessEl.classList.remove('loading');
+    btn.disabled = false;
+    document.getElementById('out').value = currentText();
+  }
+
+  function showResult() {
+    const outEl = document.getElementById('out');
+    const recEl = document.getElementById('recList');
+    const pickEl = document.getElementById('pickArea');
+    if (P.picks && P.picks.length) {
+      outEl.style.display = 'none';
+      recEl.style.display = '';
+      pickEl.style.display = 'none';
+      renderPicks();
+    } else {
+      outEl.style.display = '';
+      recEl.style.display = 'none';
+      outEl.value = orderText();
+      if (P.songs && P.songs.length) {
+        pickEl.style.display = '';
+        renderSongCheckList();
+      } else {
+        pickEl.style.display = 'none';
+      }
+    }
+  }
+
+  function renderSongCheckList() {
+    const box = document.getElementById('songCheckList');
+    box.innerHTML = P.songs.map((s, i) =>
+      '<label class="song-check"><input type="checkbox" class="songpick" value="' + i + '">' + (i + 1) + '. ' + escapeHtml(s.name) + ' —— ' + escapeHtml(s.singer) + '</label>'
+    ).join('');
+    updatePickCount();
+  }
+
+  function updatePickCount() {
+    const checked = Array.from(document.querySelectorAll('.songpick:checked')).map(c => parseInt(c.value, 10));
+    const n = checked.length;
+    const el = document.getElementById('pickCount');
+    el.textContent = '已选 ' + n + ' 首';
+    el.style.display = n > 0 ? 'inline-block' : 'none';
+
+    const pv = document.getElementById('pickPreview');
+    if (n > 0) {
+      const items = checked.map(i => {
+        const s = P.songs[i];
+        return '<div class="pp-item">' +
+          '<span class="pp-info">' + (i + 1) + '. ' + escapeHtml(s.name) + ' —— ' + escapeHtml(s.singer) + '</span>' +
+          '<button class="pp-del" onclick="removePick(' + i + ')">✕</button>' +
+        '</div>';
+      }).join('');
+      pv.innerHTML = '<div class="pp-title">已选歌曲预览</div>' + items;
+      pv.style.display = 'block';
+    } else {
+      pv.style.display = 'none';
+    }
+  }
+
+  function removePick(i) {
+    if (!confirm('确定从已选中删除这首歌吗？')) return;
+    const cb = document.querySelector('.songpick[value="' + i + '"]');
+    if (cb) cb.checked = false;
+    updatePickCount();
+  }
+
+  // 勾选歌曲变化时，更新显眼的已选数量
+  document.addEventListener('change', e => {
+    if (e.target && e.target.classList && e.target.classList.contains('songpick')) updatePickCount();
+  });
+
+  async function genSelected() {
+    const idxs = Array.from(document.querySelectorAll('.songpick:checked')).map(c => parseInt(c.value, 10));
+    if (!idxs.length) { alert('请先勾选歌曲'); return; }
+    // 按勾选顺序（歌单原始顺序）确定当前歌单顺序
+    P.order = idxs.map(i => ({ name: P.songs[i].name, singer: P.songs[i].singer }));
+    await generateBlessings();
+  }
+
+  async function generateBlessings() {
+    if (!P.order || !P.order.length) { alert('没有歌曲可生成祝词'); return; }
+    P.picks = P.order.map(s => ({ name: s.name, singer: s.singer, blessing: '' }));
+    showResult();
+    for (let i = 0; i < P.picks.length; i++) {
+      await regen(i);
+    }
+  }
+
+  async function sortSelected() {
+    const idxs = Array.from(document.querySelectorAll('.songpick:checked')).map(c => parseInt(c.value, 10));
+    if (!idxs.length) { alert('请先勾选歌曲'); return; }
+    if (idxs.length < 2) { alert('至少勾选 2 首才能智能排序'); return; }
+    SEL_IDX = idxs.slice();
+    const songs = idxs.map(i => ({ name: P.songs[i].name, singer: P.songs[i].singer }));
+    const box = document.getElementById('sortPlanList');
+    box.style.display = '';
+    box.innerHTML = '<p class="lbl">🎧 正在分析歌曲，生成多种播放顺序方案…</p>';
+    try {
+      const planCount = parseInt(document.getElementById('planCount').value, 10) || 5;
+      const r = await fetch('https://1308341533-l4z6r0c8fz.ap-guangzhou.tencentscf.com/sort', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ songs, planCount }) });
+      const d = await r.json();
+      if (!d.plans || !d.plans.length) throw new Error(d.error || '未生成方案');
+      SORT_PLANS = d.plans;
+      renderSortPlans();
+    } catch (e) {
+      box.innerHTML = '<p class="lbl">智能排序失败：' + escapeHtml(e.message) + '</p>';
+    }
+  }
+
+  function renderSortPlans() {
+    const box = document.getElementById('sortPlanList');
+    box.innerHTML = '<p class="lbl">🎧 推荐多种播放顺序（点击采用）</p>' + SORT_PLANS.map((p, pi) =>
+      '<div class="sort-plan">' +
+        '<div class="sort-plan-head"><span class="sort-plan-name">' + escapeHtml(p.name) + '</span>' +
+        (p.desc ? '<span class="sort-plan-desc">' + escapeHtml(p.desc) + '</span>' : '') + '</div>' +
+        '<div class="sort-plan-songs">' + p.order.map((oi, k) => {
+          const s = P.songs[SEL_IDX[oi]];
+          return '<div class="sort-song">' + (k + 1) + '. ' + escapeHtml(s.name) + ' —— ' + escapeHtml(s.singer) + '</div>';
+        }).join('') + '</div>' +
+        '<button class="rebtn" style="margin-top:8px" onclick="applySortPlan(' + pi + ')">✅ 采用此顺序</button>' +
+      '</div>'
+    ).join('');
+  }
+
+  async function applySortPlan(pi) {
+    const plan = SORT_PLANS[pi];
+    if (!plan) return;
+    // plan.order 是相对 SEL_IDX 的 0 基索引，映射回 P.songs 真实下标
+    const ordered = plan.order.map(oi => SEL_IDX[oi]);
+    // 只确认顺序，不立即生成祝词；祝词由「复制（带祝词）」或「勾选生成祝词」触发
+    P.order = ordered.map(i => ({ name: P.songs[i].name, singer: P.songs[i].singer }));
+    document.getElementById('sortPlanList').style.display = 'none';
+    P.picks = [];
+    showResult();
+  }
+
+  async function run() {
+    const text = collectText();
+    const manualSongs = collectManualSongs();
+    if (!text && !manualSongs.length) { alert('请先粘贴分享链接或手动添加歌名'); return; }
+    const count = parseInt(document.getElementById('cnt').value, 10) || 0;
+    const limit = parseInt(document.getElementById('limit').value, 10) || 0;
+    const tags = getTags();
+    const wordLimit = getWordLimit();
+    const custom = getCustom();
+    const wantBlessing = getWantBlessing();
+    const btn = document.getElementById('btn');
+    btn.disabled = true; btn.textContent = (count > 0 && wantBlessing) ? '⏳ 正在查询并生成祝词…' : '⏳ 正在查询…';
+    document.getElementById('logCard').style.display = '';
+    document.getElementById('outCard').style.display = 'none';
+    const logEl = document.getElementById('log');
+    logEl.value = '正在请求服务…';
+    try {
+      const r = await fetch('https://1308341533-l4z6r0c8fz.ap-guangzhou.tencentscf.com/run', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({text, count, limit, tags, wordLimit, custom, wantBlessing, manualSongs}) });
+      const d = await r.json();
+      logEl.value = d.status || '';
+      if (d.out) {
+        const titleM = d.out.match(/歌单：《(.+?)》/);
+        const rawSongs = d.songs || [];
+        const rawPicks = d.picks || [];
+        P = {
+          title: titleM ? titleM[1] : '歌单',
+          out: d.out,
+          picks: rawPicks,
+          songs: rawSongs,
+          // 已确认顺序：有推荐结果时取推荐歌，否则取完整歌单
+          order: rawPicks.length ? rawPicks.map(p => ({ name: p.name, singer: p.singer })) : rawSongs.slice(),
+          wantBlessing
+        };
+        document.getElementById('outCard').style.display = '';
+        showResult();
+      }
+    } catch (e) {
+      logEl.value = '请求失败：' + e.message + '\n（服务可能冷启动，请稍等几秒后重试）';
+    }
+    btn.disabled = false; btn.textContent = '🔍 提取歌曲';
+  }
+  async function doCopy(t) {
+    if (!t) return;
+    try { await navigator.clipboard.writeText(t); alert('已复制！'); }
+    catch (e) {
+      const el = document.getElementById('out');
+      const prev = el.style.display;
+      el.style.display = '';
+      el.value = t;
+      el.select(); el.setSelectionRange(0, 99999);
+      try { document.execCommand('copy'); alert('已复制！'); } catch (e2) { alert('复制失败，请长按结果手动复制'); }
+      el.style.display = prev;
+    }
+  }
+  function copyPlain() {
+    doCopy(orderText());
+  }
+  async function copyWithBlessing() {
+    // 若无祝词，则先按当前已确认顺序生成祝词（可反复重新生成）
+    if (!(P.picks && P.picks.length && P.picks.every(p => p.blessing))) {
+      await generateBlessings();
+      if (!(P.picks && P.picks.length)) return;
+      alert('祝词已生成，可在下方逐首「重新生成」，满意后再次点击「复制（带祝词）」');
+      return;
+    }
+    doCopy(buildTextFromPicks());
+  }
+  function dlOut() {
+    const t = currentText();
+    if (!t) return;
+    const m = t.match(/歌单：《(.+?)》/);
+    const name = (m ? m[1] : '歌单').replace(/[\\\/:*?\"<>|]/g, '_');
+    const blob = new Blob([t], { type:'text/plain;charset=utf-8' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = '歌单_' + name + '.txt';
+    a.click();
+  }
+  document.querySelector('#linkRows').addEventListener('paste', e => {
+    if (e.target.classList && e.target.classList.contains('link-inp')) setTimeout(run, 50);
+  });
+</script>
+</body>
+</html>
