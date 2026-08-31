@@ -32,8 +32,8 @@
   .tag-wrap label span { display:inline-block; padding:5px 12px; border:1px solid var(--bd); border-radius:16px; background:#fff; font-size:13px; }
   .tag-wrap label input { display:none; }
   .tag-wrap label input:checked + span { background:var(--pri); color:#fff; border-color:var(--pri); }
-  input[type=number], input[type=text], select { width:100%; border:1px solid var(--bd); border-radius:8px; padding:10px; font:inherit; background:#fff; }
-  input[type=number]:focus, input[type=text]:focus, select:focus { outline:2px solid var(--pri); border-color:var(--pri); }
+  input[type=number], input[type=text], input[type=password], select { width:100%; border:1px solid var(--bd); border-radius:8px; padding:10px; font:inherit; background:#fff; }
+  input[type=number]:focus, input[type=text]:focus, input[type=password]:focus, select:focus { outline:2px solid var(--pri); border-color:var(--pri); }
   .rec-item { border:1px solid var(--bd); border-radius:10px; padding:12px; margin:10px 0; background:#fafbfd; }
   .rec-song { font-weight:600; font-size:15px; }
   .rec-blessing { white-space:pre-wrap; margin:8px 0; color:var(--text); line-height:1.7; }
@@ -51,7 +51,10 @@
   .sort-song { padding:2px 0; }
   .sort-plan-count { display:flex; align-items:center; margin-top:10px; }
   .sort-plan-count select { width:auto; padding:6px 10px; }
-  .pick-count { display:none; position:fixed; right:16px; bottom:calc(40vh + 44px); z-index:999; padding:6px 16px; border-radius:16px; background:var(--pri); color:#fff; font-size:13px; font-weight:600; box-shadow:0 4px 14px rgba(43,108,255,.35); }
+  .pick-count { display:none; position:fixed; right:16px; bottom:calc(40vh + 44px); z-index:999; padding:6px 16px; border-radius:16px; background:var(--pri); color:#fff; font-size:13px; font-weight:600; box-shadow:0 4px 14px rgba(43,108,255,.35); cursor:pointer; user-select:none; }
+  .pick-count:active { transform:scale(.96); }
+  .model-head { display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none; }
+  .model-head .lbl { margin:0; }
   .pick-preview { display:none; position:fixed; right:16px; bottom:16px; z-index:999; width:80%; max-width:340px; max-height:40vh; overflow:auto; padding:10px 14px; border-radius:12px; background:#fff; border:1px solid var(--bd); box-shadow:0 6px 20px rgba(0,0,0,.14); }
   .pick-preview .pp-title { font-size:12px; color:var(--mut); margin-bottom:6px; }
   .pick-preview .pp-item { display:flex; align-items:center; font-size:13px; color:var(--text); padding:4px 0; border-bottom:1px solid #f0f2f7; }
@@ -118,6 +121,21 @@
     <input id="custom" type="text" placeholder="例如：要喜庆一点、提到龙年、口语化一些……">
     <button id="btn" onclick="run()">🔍 提取歌曲</button>
   </div>
+  <div class="card">
+    <div class="model-head" onclick="toggleModelConfig()">
+      <p class="lbl">⚙️ 模型配置（可选，点击展开）</p>
+      <span id="modelArrow" style="color:var(--mut);font-size:12px">▸</span>
+    </div>
+    <div id="modelConfig" style="display:none">
+      <p class="lbl" style="margin-top:8px">🔑 API Key（留空则用服务端默认）</p>
+      <input id="aiKey" type="password" placeholder="sk-..." autocomplete="off">
+      <p class="lbl" style="margin-top:8px">🌐 接口地址 Base URL（留空默认 DeepSeek）</p>
+      <input id="aiBaseUrl" type="text" placeholder="https://api.deepseek.com/chat/completions">
+      <p class="lbl" style="margin-top:8px">🧠 模型名称（留空默认 deepseek-v4-pro）</p>
+      <input id="aiModel" type="text" placeholder="deepseek-v4-pro">
+      <p class="lbl" style="margin-top:8px;color:#e5484d">⚠️ 密钥仅随本次请求发送到后端，页面不会保存</p>
+    </div>
+  </div>
   <div class="card" style="display:none" id="logCard">
     <p class="lbl">运行状态</p>
     <textarea id="log" class="log" readonly rows="5"></textarea>
@@ -128,7 +146,7 @@
     <div id="recList" style="display:none"></div>
     <div id="pickArea" style="display:none">
       <p class="lbl" style="margin-top:12px">🎯 勾选歌曲，为其生成祝词</p>
-      <div id="pickCount" class="pick-count">已选 0 首</div>
+      <div id="pickCount" class="pick-count" onclick="togglePickPreview()">已选 0 首 ▾</div>
       <div id="pickPreview" class="pick-preview"></div>
       <div id="songCheckList"></div>
       <button class="rebtn" style="margin-top:10px" onclick="genSelected()">✨ 为选中歌曲生成祝词</button>
@@ -315,7 +333,7 @@
     blessEl.classList.add('loading');
     blessEl.textContent = '🎁 正在生成新祝词…';
     try {
-      const r = await fetch('https://1308341533-l4z6r0c8fz.ap-guangzhou.tencentscf.com/rebless', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ songName: p.name, singer: p.singer, tags: getTags(), wordLimit: getWordLimit(), custom: getCustom() }) });
+      const r = await fetch('https://1308341533-l4z6r0c8fz.ap-guangzhou.tencentscf.com/rebless', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ songName: p.name, singer: p.singer, tags: getTags(), wordLimit: getWordLimit(), custom: getCustom(), ai: getAIConfig() }) });
       const d = await r.json();
       if (d.blessing) {
         p.blessing = d.blessing;
@@ -363,11 +381,32 @@
     updatePickCount();
   }
 
+  let pickPreviewOpen = true;
+  function togglePickPreview() {
+    pickPreviewOpen = !pickPreviewOpen;
+    updatePickCount();
+  }
+
+  function toggleModelConfig() {
+    const box = document.getElementById('modelConfig');
+    const arrow = document.getElementById('modelArrow');
+    const open = box.style.display !== 'none';
+    box.style.display = open ? 'none' : 'block';
+    arrow.textContent = open ? '▸' : '▾';
+  }
+
+  function getAIConfig() {
+    const key = document.getElementById('aiKey').value.trim();
+    const baseUrl = document.getElementById('aiBaseUrl').value.trim();
+    const model = document.getElementById('aiModel').value.trim();
+    return { apiKey: key, baseUrl: baseUrl, model: model };
+  }
+
   function updatePickCount() {
     const checked = Array.from(document.querySelectorAll('.songpick:checked')).map(c => parseInt(c.value, 10));
     const n = checked.length;
     const el = document.getElementById('pickCount');
-    el.textContent = '已选 ' + n + ' 首';
+    el.textContent = '已选 ' + n + ' 首 ' + (pickPreviewOpen ? '▾' : '▸');
     el.style.display = n > 0 ? 'inline-block' : 'none';
 
     const pv = document.getElementById('pickPreview');
@@ -380,7 +419,7 @@
         '</div>';
       }).join('');
       pv.innerHTML = '<div class="pp-title">已选歌曲预览</div>' + items;
-      pv.style.display = 'block';
+      pv.style.display = pickPreviewOpen ? 'block' : 'none';
     } else {
       pv.style.display = 'none';
     }
@@ -426,7 +465,7 @@
     box.innerHTML = '<p class="lbl">🎧 正在分析歌曲，生成多种播放顺序方案…</p>';
     try {
       const planCount = parseInt(document.getElementById('planCount').value, 10) || 5;
-      const r = await fetch('https://1308341533-l4z6r0c8fz.ap-guangzhou.tencentscf.com/sort', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ songs, planCount }) });
+      const r = await fetch('https://1308341533-l4z6r0c8fz.ap-guangzhou.tencentscf.com/sort', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ songs, planCount, ai: getAIConfig() }) });
       const d = await r.json();
       if (!d.plans || !d.plans.length) throw new Error(d.error || '未生成方案');
       SORT_PLANS = d.plans;
@@ -480,7 +519,7 @@
     const logEl = document.getElementById('log');
     logEl.value = '正在请求服务…';
     try {
-      const r = await fetch('https://1308341533-l4z6r0c8fz.ap-guangzhou.tencentscf.com/run', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({text, count, limit, tags, wordLimit, custom, wantBlessing, manualSongs}) });
+      const r = await fetch('https://1308341533-l4z6r0c8fz.ap-guangzhou.tencentscf.com/run', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({text, count, limit, tags, wordLimit, custom, wantBlessing, manualSongs, ai: getAIConfig()}) });
       const d = await r.json();
       logEl.value = d.status || '';
       if (d.out) {
